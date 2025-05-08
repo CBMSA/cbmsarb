@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CBDC Wallet</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f9fc; color: #333; }
+    input, select { margin: 8px 0; padding: 10px; width: 260px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 10px 16px; background-color: #0077cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #005fa3; }
+    #wallet, #filters { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    h2, h3, h4 { color: #005fa3; }
+    #transactions div { background: #f0f4f8; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h2>CBDC Wallet Registration</h2>
+  <input type="email" id="email" placeholder="Email"><br>
+  <input type="password" id="password" placeholder="Password"><br>
+  <input type="tel" id="phone" placeholder="Cell Phone Number"><br>
+  <button onclick="login()">Register / Login</button>
+
+  <div id="wallet" style="display:none;">
+    <h3>Welcome, <span id="userEmail"></span></h3>
+    <p>Company Budget Balance: R<span id="balance"></span></p>
+
+    <h4>Make a Transfer</h4>
+    <input type="text" id="receiverName" placeholder="Receiver Account Name"><br>
+    <input type="text" id="receiverNumber" placeholder="Receiver Account Number"><br>
+    <input type="text" id="receiverBank" placeholder="Receiver Bank Name"><br>
+    <input type="number" id="amount" placeholder="Amount to send"><br>
+    <select id="type">
+      <option value="Salary">Salary</option>
+      <option value="Business">Business</option>
+      <option value="Pension">Pension</option>
+    </select><br>
+    <button onclick="transfer()">Transfer</button>
+
+    <div id="filters">
+      <h4>Filter Transactions</h4>
+      <label>Date Range:</label><br>
+      <input type="date" id="startDate"> to <input type="date" id="endDate"><br>
+      <label>Type:</label>
+      <select id="filterType">
+        <option value="">All</option>
+        <option value="Salary">Salary</option>
+        <option value="Business">Business</option>
+        <option value="Pension">Pension</option>
+      </select><br>
+      <button onclick="renderTransactions()">Apply Filters</button>
+    </div>
+
+    <h4>Transaction History</h4>
+    <div id="transactions"></div>
+  </div>
+
+  <script>
+    let user = {
+      email: '',
+      phone: '',
+      balance: 0,
+      transactions: []
+    };
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+      if (!email || !phone) return alert("Enter email and phone number");
+      user.email = email;
+      user.phone = phone;
+      user.balance = 200000000000.00;
+      document.getElementById('userEmail').textContent = email;
+      document.getElementById('balance').textContent = user.balance.toFixed(2);
+      document.getElementById('wallet').style.display = 'block';
+      renderTransactions();
+    }
+
+    function transfer() {
+      const amount = parseFloat(document.getElementById('amount').value);
+      const type = document.getElementById('type').value;
+      const receiverName = document.getElementById('receiverName').value;
+      const receiverNumber = document.getElementById('receiverNumber').value;
+      const receiverBank = document.getElementById('receiverBank').value;
+
+      if (!receiverName || !receiverNumber || !receiverBank) return alert("Fill all receiver details");
+      if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
+
+      const fee = amount * 0.01;
+      const tax = amount * 0.015;
+      const total = amount + fee + tax;
+
+      if (total > user.balance) return alert("Insufficient funds");
+
+      user.balance -= total;
+      user.transactions.push({
+        type,
+        amount,
+        fee,
+        tax,
+        total,
+        date: new Date().toISOString().split('T')[0],
+        receiver: {
+          name: receiverName,
+          number: receiverNumber,
+          bank: receiverBank
+        }
+      });
+
+      document.getElementById('balance').textContent = user.balance.toFixed(2);
+      document.getElementById('amount').value = "";
+      document.getElementById('receiverName').value = "";
+      document.getElementById('receiverNumber').value = "";
+      document.getElementById('receiverBank').value = "";
+      renderTransactions();
+    }
+
+    function renderTransactions() {
+      const txContainer = document.getElementById('transactions');
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      const filterType = document.getElementById('filterType').value;
+
+      txContainer.innerHTML = "";
+
+      let filtered = user.transactions;
+
+      if (start) {
+        filtered = filtered.filter(tx => tx.date >= start);
+      }
+      if (end) {
+        filtered = filtered.filter(tx => tx.date <= end);
+      }
+      if (filterType) {
+        filtered = filtered.filter(tx => tx.type === filterType);
+      }
+
+      if (filtered.length === 0) {
+        txContainer.innerHTML = "<p>No transactions found.</p>";
+        return;
+      }
+
+      filtered.forEach(tx => {
+        txContainer.innerHTML += `
+          <div>
+            <strong>${tx.date}</strong><br>
+            Type: ${tx.type}<br>
+            Receiver: ${tx.receiver.name}<br>
+            Account Number: ${tx.receiver.number}<br>
+            Bank: ${tx.receiver.bank}<br>
+            Amount: R${tx.amount.toLocaleString()}<br>
+            Fee: R${tx.fee.toFixed(2)}<br>
+            Tax: R${tx.tax.toFixed(2)}<br>
+            Total Deducted: R${tx.total.toFixed(2)}
+          </div>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
