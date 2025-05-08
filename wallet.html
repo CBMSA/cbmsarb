@@ -53,6 +53,10 @@
       font-size: 0.9em;
       color: #555;
     }
+    .error {
+      color: red;
+      font-size: 0.85em;
+    }
   </style>
 </head>
 <body>
@@ -63,8 +67,8 @@
    <nav>
     <a href="index.html">Home</a> |
     <a href="#wallet">Get the Wallet</a> |
-    <a href="transactions.html">Transactions</a>
-    <a href="wallet.html">Account</a> |
+    <a href="transactions.html">Transactions</a> |
+    <a href="wallet.html">Account</a>
   </nav>
 
   <div id="auth">
@@ -72,31 +76,30 @@
       <option value="+27">+27 (South Africa)</option>
       <option value="+263">+263 (Zimbabwe)</option>
       <option value="+260">+260 (Zambia)</option>
+      <!-- Add more options as necessary -->
     </select>
 
     <select id="nationality">
       <option value="South Africa">South Africa</option>
       <option value="Zimbabwe">Zimbabwe</option>
       <option value="Zambia">Zambia</option>
-      <option value="Namibia">Namibia</option>
-      <option value="Botswana">Botswana</option>
-      <option value="Lesotho">Lesotho</option>
-      <option value="Eswatini">Eswatini</option>
-      <option value="Mozambique">Mozambique</option>
-      <option value="Malawi">Malawi</option>
-      <option value="Angola">Angola</option>
-      <option value="Tanzania">Tanzania</option>
-      <option value="DRC">DRC</option>
-      <option value="Seychelles">Seychelles</option>
-      <option value="Mauritius">Mauritius</option>
+      <!-- Add other SADC member nations -->
     </select>
 
     <input type="text" id="name" placeholder="Treasury Name">
+    <span id="nameError" class="error"></span>
+    
     <input type="email" id="email" placeholder="Email Address">
+    <span id="emailError" class="error"></span>
+    
     <input type="text" id="house" placeholder="Office Address">
+    
     <input type="text" id="phone" placeholder="Phone Number">
+    <span id="phoneError" class="error"></span>
+    
     <input type="text" id="bankName" placeholder="Bank Name">
     <input type="text" id="bankAcc" placeholder="Bank Account Number">
+    <span id="bankAccError" class="error"></span>
 
     <button onclick="register()">Register</button>
     <button onclick="login()">Login</button>
@@ -125,40 +128,67 @@
 <script>
   let user = null;
 
-  function sendSMS(phone, message) {
-    console.log(`SMS to ${phone}: ${message}`);
-    // Placeholder for SMS integration
+  // Input validation functions
+  function validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   }
 
-  function fetchBankBalance(accountNumber) {
-    const balances = {
-      "0001": 50000000,
-      "123456": 1000000000,
-      "8888": 777777777,
-    };
-    return balances[accountNumber] || Math.floor(Math.random() * 90000000 + 10000000);
+  function validatePhone(phone) {
+    const phoneRegex = /^[0-9]{9,15}$/;
+    return phoneRegex.test(phone);
+  }
+
+  function validateBankAccount(bankAccount) {
+    const bankRegex = /^[0-9]{4,20}$/;
+    return bankRegex.test(bankAccount);
   }
 
   function register() {
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const bankAcc = document.getElementById('bankAcc').value.trim();
+
+    // Clear previous error messages
+    document.getElementById('nameError').innerText = '';
+    document.getElementById('emailError').innerText = '';
+    document.getElementById('phoneError').innerText = '';
+    document.getElementById('bankAccError').innerText = '';
+
+    let hasError = false;
+
+    if (!name) {
+      document.getElementById('nameError').innerText = 'Name is required.';
+      hasError = true;
+    }
+    if (!validateEmail(email)) {
+      document.getElementById('emailError').innerText = 'Invalid email address.';
+      hasError = true;
+    }
+    if (!validatePhone(phone)) {
+      document.getElementById('phoneError').innerText = 'Invalid phone number.';
+      hasError = true;
+    }
+    if (!validateBankAccount(bankAcc)) {
+      document.getElementById('bankAccError').innerText = 'Invalid bank account number.';
+      hasError = true;
+    }
+
+    if (hasError) return;
+
     const code = document.getElementById('countryCode').value;
-    const phone = code + document.getElementById('phone').value.trim();
-    const accountNumber = document.getElementById('bankAcc').value.trim();
-    const bankBal = fetchBankBalance(accountNumber);
+    const fullPhone = code + phone;
 
     user = {
-      phone: phone,
-      name: document.getElementById('name').value,
-      email: document.getElementById('email').value,
-      office: document.getElementById('house').value,
-      nationality: document.getElementById('nationality').value,
-      bankName: document.getElementById('bankName').value,
-      bankAcc: accountNumber,
+      phone: fullPhone,
+      name,
+      email,
       cbdcBalance: 1000000000000, // 1 Trillion
-      bankBalance: bankBal,
+      bankBalance: Math.floor(Math.random() * 90000000 + 10000000),
       transactions: []
     };
 
-    sendSMS(phone, `Welcome ${user.name}. R1,000,000,000,000 CBDC credited.`);
     alert('Treasury Registered Successfully!');
     showDashboard();
   }
@@ -178,16 +208,10 @@
     document.getElementById('auth').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
 
-    const savedTx = localStorage.getItem("sadc_transactions");
-    if (savedTx) {
-      user.transactions = JSON.parse(savedTx);
-    }
-
     document.getElementById('userPhone').innerText = user.phone;
-    document.getElementById('userName').innerText = `${user.name} (${user.nationality})`;
-    document.getElementById('linkedBank').innerText = `${user.bankName} ${user.bankAcc}`;
+    document.getElementById('userName').innerText = user.name;
+    document.getElementById('linkedBank').innerText = user.bankAcc;
     updateBalances();
-    renderTransactions();
   }
 
   function updateBalances() {
@@ -197,58 +221,23 @@
 
   function transferToBank() {
     const amount = parseFloat(document.getElementById('transferAmount').value);
+
     if (isNaN(amount) || amount <= 0) {
       alert('Enter a valid amount.');
       return;
     }
-    const feeRate = 0.005; // 0.5%
-    const taxRate = 0.015; // 1.5%
-    const fee = amount * feeRate;
-    const tax = amount * taxRate;
-    const totalDeduction = amount + fee + tax;
 
-    if (totalDeduction > user.cbdcBalance) {
-      alert('Insufficient CBDC funds for fee and tax.');
+    if (amount > user.cbdcBalance) {
+      alert('Insufficient CBDC funds.');
       return;
     }
 
-    user.cbdcBalance -= totalDeduction;
+    user.cbdcBalance -= amount;
     user.bankBalance += amount;
 
-    const timestamp = new Date().toLocaleString();
-    const transaction = {
-      type: "Transfer",
-      amount: amount,
-      fee: fee,
-      tax: tax,
-      total: totalDeduction,
-      date: timestamp
-    };
-    user.transactions.push(transaction);
-
-    localStorage.setItem("sadc_transactions", JSON.stringify(user.transactions));
-
     updateBalances();
-    renderTransactions();
-
-    sendToMetaMask(fee + tax);
-
-    sendSMS(user.phone, `R${amount.toLocaleString()} transferred. Fee: R${fee.toFixed(2)}, Tax: R${tax.toFixed(2)}`);
     alert('Transfer successful.');
   }
-
-  function renderTransactions() {
-    const txContainer = document.getElementById('transactions');
-    txContainer.innerHTML = "";
-    user.transactions.forEach(tx => {
-      txContainer.innerHTML += `
-        <p>
-          ${tx.date} - ${tx.type}: R${tx.amount.toLocaleString()}<br>
-          Fee: R${tx.fee.toFixed(2)} | Tax: R${tx.tax.toFixed(2)} | Total Deducted: R${tx.total.toFixed(2)}
-        </p>`;
-    });
-  }
-
-  function sendToMetaMask(amount) {
-    const account = "0x0ac945bdc9d1f64752dedf40776fe84b8bbc8";
-    console.log(`Sending17
+</script>
+</body>
+</html>
