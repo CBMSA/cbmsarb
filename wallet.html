@@ -6,7 +6,7 @@
   <title>CBDC Wallet</title>
   <style>
     body { font-family: Arial; margin: 20px; }
-    input, select { margin: 5px 0; padding: 5px; width: 200px; }
+    input, select { margin: 5px 0; padding: 5px; width: 220px; }
     button { padding: 5px 10px; }
     #wallet, #filters { margin-top: 20px; }
   </style>
@@ -22,6 +22,9 @@
     <p>Balance: R<span id="balance"></span></p>
 
     <h4>Make a Transfer</h4>
+    <input type="text" id="receiverName" placeholder="Receiver Account Name"><br>
+    <input type="text" id="receiverNumber" placeholder="Receiver Account Number"><br>
+    <input type="text" id="receiverBank" placeholder="Receiver Bank Name"><br>
     <input type="number" id="amount" placeholder="Amount to send"><br>
     <select id="type">
       <option value="Salary">Salary</option>
@@ -68,10 +71,15 @@
     function transfer() {
       const amount = parseFloat(document.getElementById('amount').value);
       const type = document.getElementById('type').value;
+      const receiverName = document.getElementById('receiverName').value;
+      const receiverNumber = document.getElementById('receiverNumber').value;
+      const receiverBank = document.getElementById('receiverBank').value;
+
+      if (!receiverName || !receiverNumber || !receiverBank) return alert("Fill all receiver details");
       if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
 
-      const fee = amount * 1.10;
-      const tax = amount * 0.15;
+      const fee = amount * 0.01;
+      const tax = amount * 0.015;
       const total = amount + fee + tax;
 
       if (total > user.balance) return alert("Insufficient funds");
@@ -83,11 +91,19 @@
         fee,
         tax,
         total,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        receiver: {
+          name: receiverName,
+          number: receiverNumber,
+          bank: receiverBank
+        }
       });
 
       document.getElementById('balance').textContent = user.balance.toFixed(2);
       document.getElementById('amount').value = "";
+      document.getElementById('receiverName').value = "";
+      document.getElementById('receiverNumber').value = "";
+      document.getElementById('receiverBank').value = "";
       renderTransactions();
     }
 
@@ -118,18 +134,22 @@
 
       filtered.forEach(tx => {
         txContainer.innerHTML += `
-          <p>
+          <div style="border-bottom:1px solid #ccc; margin-bottom:10px; padding-bottom:10px;">
             <strong>${tx.date}</strong><br>
             Type: ${tx.type}<br>
+            Receiver: ${tx.receiver.name}<br>
+            Account Number: ${tx.receiver.number}<br>
+            Bank: ${tx.receiver.bank}<br>
             Amount: R${tx.amount.toLocaleString()}<br>
             Fee: R${tx.fee.toFixed(2)}<br>
             Tax: R${tx.tax.toFixed(2)}<br>
             Total Deducted: R${tx.total.toFixed(2)}
-          </p>
+          </div>
         `;
       });
     }
   </script>
 </body>
 </html>
+
 
