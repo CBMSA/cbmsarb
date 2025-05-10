@@ -1,0 +1,24 @@
+
+services:
+  - type: web
+    name: cbmsarb-frontend
+    env: static
+    buildCommand: cd frontend && yarn install && yarn build
+    staticPublishPath: frontend/build
+    buildFilter:
+      paths:
+        - frontend/**/*
+    pullRequestPreviewsEnabled: true
+
+  - type: web
+    name: cbmsarb-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && yarn install
+    startCommand: cd backend && yarn start
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+    buildFilter:
+      paths:
+        - backend/**/*
