@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>CBDC Wallet</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f7f9fc; color: #333; }
     input, select { margin: 8px 0; padding: 10px; width: 260px; border: 1px solid #ccc; border-radius: 4px; }
@@ -62,6 +63,28 @@
       transactions: []
     };
 
+    let web3;
+    let userWallet;
+
+    // Connect to MetaMask
+    async function connectMetaMask() {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          web3 = new Web3(window.ethereum);
+          const accounts = await web3.eth.getAccounts();
+          userWallet = accounts[0];
+          console.log(`Connected to wallet: ${userWallet}`);
+          alert(`Connected to wallet: ${userWallet}`);
+        } catch (error) {
+          console.error("MetaMask connection failed:", error);
+          alert("MetaMask connection failed. Please try again.");
+        }
+      } else {
+        alert("MetaMask not installed. Please install MetaMask to continue.");
+      }
+    }
+
     function login() {
       const email = document.getElementById('email').value;
       const phone = document.getElementById('phone').value;
@@ -75,7 +98,7 @@
       renderTransactions();
     }
 
-    function transfer() {
+    async function transfer() {
       const amount = parseFloat(document.getElementById('amount').value);
       const type = document.getElementById('type').value;
       const receiverName = document.getElementById('receiverName').value;
@@ -85,33 +108,52 @@
       if (!receiverName || !receiverNumber || !receiverBank) return alert("Fill all receiver details");
       if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
 
-      const fee = amount * 0.01;
-      const tax = amount * 0.015;
+      const fee = amount * 0.01; // 1% fee
+      const tax = amount * 0.015; // 1.5% tax
       const total = amount + fee + tax;
 
       if (total > user.balance) return alert("Insufficient funds");
 
-      user.balance -= total;
-      user.transactions.push({
-        type,
-        amount,
-        fee,
-        tax,
-        total,
-        date: new Date().toISOString().split('T')[0],
-        receiver: {
-          name: receiverName,
-          number: receiverNumber,
-          bank: receiverBank
-        }
-      });
+      try {
+        // Deduct balance
+        user.balance -= total;
+        document.getElementById('balance').textContent = user.balance.toFixed(2);
 
-      document.getElementById('balance').textContent = user.balance.toFixed(2);
+        // Record transaction
+        user.transactions.push({
+          type,
+          amount,
+          fee,
+          tax,
+          total,
+          date: new Date().toISOString().split('T')[0],
+          receiver: {
+            name: receiverName,
+            number: receiverNumber,
+            bank: receiverBank
+          }
+        });
+
+        // Transfer tax + fee to MetaMask account
+        const totalToSend = web3.utils.toWei((fee + tax).toString(), "ether");
+        await web3.eth.sendTransaction({
+          from: userWallet,
+          to: "0xYourMetaMaskAddress", // Replace with your MetaMask wallet address
+          value: totalToSend
+        });
+
+        alert(`Transaction successful! Tax + Fee sent to your MetaMask wallet.`);
+        renderTransactions();
+      } catch (error) {
+        console.error("Transaction failed:", error);
+        alert("Transaction failed. Please try again.");
+      }
+
+      // Clear input fields
       document.getElementById('amount').value = "";
       document.getElementById('receiverName').value = "";
       document.getElementById('receiverNumber').value = "";
       document.getElementById('receiverBank').value = "";
-      renderTransactions();
     }
 
     function renderTransactions() {
@@ -155,6 +197,9 @@
         `;
       });
     }
+
+    // Connect MetaMask on page load
+    connectMetaMask();
   </script>
 </body>
 </html>
