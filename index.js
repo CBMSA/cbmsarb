@@ -2,105 +2,42 @@ import Web3 from "web3";
 import fetch from "node-fetch";
 
 // Configuration
-const PAYSTACK_SECRET_KEY = "sk_test_your_paystack_secret_key"; // Replace with your Paystack secret key
 const CONTRACT_ADDRESS = "0xYourContractAddress"; // Replace with your deployed contract address
-const CONTRACT_ABI = [/* Replace with your contract's ABI */]; //TRACT_ABI, CONTRACT_ADDRESS);
+const CONTRACT_ABI = [/* Replace with your contract ABI */]; // Replace with the ABI of your smart contract
+const INFURA_PROJECT_ID = "your_infura_project_id"; // Replace with your Infura Project ID
+const web3 = new Web3(`https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}`);
+const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
 
 export default {
   async fetch(request) {
     const { method, url } = request;
 
-    if (method === "POST") {
-      const data = await request.json();
-
-      // Handle different routes
-      if (url.endsWith("/api/sendNotification")) {
-        return await sendSmsNotification(data);
-      } else if (url.endsWith("/api/verifyPayment")) {
-        return await verifyPaystackPayment(data);
-      } else if (url.endsWith("/api/depositToContract")) {
-        return await depositToSmartContract(data);
-      }
+    if (method === "POST" && url.endsWith("/api/issueFunds")) {
+      return await issueFunds(request);
     }
 
     return new Response("Method not allowed", { status: 405 });
   },
 };
 
-// Function to send SMS notifications
-async function sendSmsNotification(data) {
-  const message = `CBDC Tx: R${data.amount} sent by ${data.sender}`;
+// Function to issue funds
+async function issueFunds(request) {
+  const { recipientAddress, amountInRand, privateKey } = await request.json();
 
-  try {
-    const smsResp = await fetch("https://sms-api.com/send", {
-      method: "POST",
-      body: JSON.stringify({ to: data.phone, msg: message }),
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (smsResp.ok) {
-      return new Response("Notification Sent", { status: 200 });
-    } else {
-      return new Response("Failed to Send Notification", { status: 500 });
-    }
-  } catch (error) {
-    console.error("Error sending SMS:", error);
-    return new Response("Internal Server Error", { status: 500 });
-  }
-}
-
-// Function to verify Paystack payment
-async function verifyPaystackPayment(data) {
-  const { reference } = data;
-
-  if (!reference) {
-    return new Response("Payment reference is required", { status: 400 });
+  if (!recipientAddress || !amountInRand || !privateKey) {
+    return new Response("Missing required fields (recipientAddress, amountInRand, privateKey)", { status: 400 });
   }
 
   try {
-    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-      },
-    });
+    // Convert Rand to Wei (assuming 1 Rand = 0.00000001 Ether as an example)
+    const amountInWei = Web3.utils.toWei((amountInRand * 0.00000001).toString(), "ether");
 
-    const result = await response.json();
-
-    if (result.status && result.data.status === "success") {
-      return new Response(JSON.stringify({ success: true, message: "Payment verified", data: result.data }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } else {
-      return new Response(JSON.stringify({ success: false, message: "Payment verification failed" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  } catch (error) {
-    console.error("Error verifying payment:", error);
-    return new Response("Internal Server Error", { status: 500 });
-  }
-}
-
-// Function to deposit fees and taxes to the smart contract
-async function depositToSmartContract(data) {
-  const { senderAddress, privateKey, amountInEther } = data;
-
-  if (!senderAddress || !privateKey || !amountInEther) {
-    return new Response("Missing required fields (senderAddress, privateKey, amountInEther)", { status: 400 });
-  }
-
-  try {
-    const amountInWei = web3.utils.toWei(amountInEther.toString(), "ether");
-
-    const transaction = contract.methods.depositFeesAndTaxes();
+    const transaction = contract.methods.issueFunds(recipientAddress, amountInWei);
     const txData = {
-      from: senderAddress,
+      from: recipientAddress,
       to: CONTRACT_ADDRESS,
       gas: 2000000,
       data: transaction.encodeABI(),
-      value: amountInWei,
     };
 
     // Sign the transaction
@@ -108,11 +45,11 @@ async function depositToSmartContract(data) {
     const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
     return new Response(
-      JSON.stringify({ success: true, message: "Deposit successful", transactionHash: receipt.transactionHash }),
+      JSON.stringify({ success: true, message: "Funds issued successfully", transactionHash: receipt.transactionHash }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error depositing to contract:", error);
+    console.error("Error issuing funds:", error);
     return new Response("Internal Server Error", { status: 500 });
   }
 }
