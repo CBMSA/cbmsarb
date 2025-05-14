@@ -2,9 +2,47 @@ import Web3 from "web3";
 import fetch from "node-fetch";
 
 // Configuration
-const CONTRACT_ADDRESS = "0xYourContractAddress"; // Replace with your deployed contract address
-const CONTRACT_ABI = [/* Replace with your contract ABI */]; // Replace with the ABI of your smart contract
-const INFURA_PROJECT_ID = "your_infura_project_id"; // Replace with your Infura Project ID
+const CONTRACT_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678"; // Deployed contract address
+const CONTRACT_ABI = [
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "FundsIssued",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "getContractBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]; // ABI of the contract
+const INFURA_PROJECT_ID = "123abc456def789ghi"; // Infura Project ID
 const web3 = new Web3(`https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}`);
 const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
 
