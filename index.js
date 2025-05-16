@@ -2,7 +2,7 @@ import Web3 from "web3";
 import fetch from "node-fetch";
 
 // Configuration
-const CONTRACT_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678"; // Deployed contract address
+const CONTRACT_ADDRESS = "0x40ccc6bf35440Fe7041b3b4bB9e20C4ABd6760e6"; // Deployed contract address
 const CONTRACT_ABI = [
   {
     "inputs": [],
