@@ -2,201 +2,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>CBDC Wallet</title>
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SADC CBDC Web3 Wallet</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f9fc; color: #333; }
-    input, select { margin: 8px 0; padding: 10px; width: 260px; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 10px 16px; background-color: #0077cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover { background-color: #005fa3; }
-    #wallet, #filters, #verify { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    h2, h3, h4 { color: #005fa3; }
-    #transactions div { background: #f0f4f8; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f4f4f4;
+      color: #333;
+    }
+    .wallet {
+      background: #fff;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .balance, .transactions {
+      margin-top: 20px;
+    }
+    .transaction {
+      background: #e0f7fa;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+    }
+    .trace-id {
+      font-size: 0.9em;
+      color: #555;
+    }
   </style>
 </head>
 <body>
-  <h2>CBDC Wallet Registration</h2>
-  <div id="auth">
-    <input type="email" id="email" placeholder="Email"><br>
-    <input type="password" id="password" placeholder="Password"><br>
-    <input type="tel" id="phone" placeholder="Cell Phone Number"><br>
-    <button onclick="startVerification()">Verify Account</button>
-  </div>
+  <div class="wallet">
+    <h1>SADC CBDC Web3 Wallet</h1>
 
-  <div id="verify" style="display:none;">
-    <h4>Enter Verification Code (123456)</h4>
-    <input type="text" id="codeInput" placeholder="Enter Code"><br>
-    <button onclick="completeVerification()">Complete Login</button>
-  </div>
+    <div>
+      <label for="amount">Amount:</label>
+      <input type="number" id="amount" placeholder="Enter amount" required />
 
-  <div id="wallet" style="display:none;">
-    <h3>Welcome, <span id="userEmail"></span></h3>
-    <p>Company Budget Balance: R<span id="balance"></span></p>
+      <label for="recipient">Recipient:</label>
+      <input type="text" id="recipient" placeholder="Recipient address" required />
 
-    <h4>Make a Transfer</h4>
-    <input type="text" id="receiverName" placeholder="Receiver Account Name"><br>
-    <input type="text" id="receiverNumber" placeholder="Receiver Account Number"><br>
-    <input type="text" id="receiverBank" placeholder="Receiver Bank Name"><br>
-    <input type="number" id="amount" placeholder="Amount to send"><br>
-    <select id="type">
-      <option value="Salary">Salary</option>
-      <option value="Business">Business</option>
-      <option value="Pension">Pension</option>
-    </select><br>
-    <button onclick="transfer()">Transfer</button>
-
-    <div id="filters">
-      <h4>Filter Transactions</h4>
-      <label>Date Range:</label><br>
-      <input type="date" id="startDate"> to <input type="date" id="endDate"><br>
-      <label>Type:</label>
-      <select id="filterType">
-        <option value="">All</option>
-        <option value="Salary">Salary</option>
-        <option value="Business">Business</option>
-        <option value="Pension">Pension</option>
-      </select><br>
-      <button onclick="renderTransactions()">Apply Filters</button>
+      <button onclick="transfer()">Transfer</button>
     </div>
 
-    <h4>Transaction History</h4>
-    <div id="transactions"></div>
+    <div class="balance">
+      <h2>Wallet Balance: <span id="balance">1000</span> ZAR</h2>
+    </div>
+
+    <div class="transactions">
+      <h2>Transaction History</h2>
+      <div id="transaction-list"></div>
+    </div>
   </div>
 
   <script>
-    let user = {
-      email: '',
-      phone: '',
-      balance: 200000000000.00,
+    // Dummy user wallet
+    const user = {
+      balance: 1000,
       transactions: []
     };
 
-    let web3;
-    let userWallet;
-
-    // Connect to MetaMask
-    async function connectMetaMask() {
-      if (window.ethereum) {
-        try {
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          web3 = new Web3(window.ethereum);
-          const accounts = await web3.eth.getAccounts();
-          userWallet = accounts[0];
-          console.log(`Connected wallet: ${userWallet}`);
-        } catch (error) {
-          alert("MetaMask connection failed.");
-        }
-      } else {
-        alert("MetaMask not detected. Please install MetaMask.");
-      }
+    function generateTraceId() {
+      const now = new Date();
+      const timestamp = now.getFullYear().toString() +
+                        (now.getMonth() + 1).toString().padStart(2, '0') +
+                        now.getDate().toString().padStart(2, '0') +
+                        now.getHours().toString().padStart(2, '0') +
+                        now.getMinutes().toString().padStart(2, '0') +
+                        now.getSeconds().toString().padStart(2, '0');
+      const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+      return `TX-${timestamp}-${randomStr}`;
     }
 
-    function startVerification() {
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-      if (!email || !phone) return alert("Please enter both email and phone number.");
-      
-      alert("Verification code sent to your email (simulated as '123456').");
-      document.getElementById('auth').style.display = "none";
-      document.getElementById('verify').style.display = "block";
-    }
-
-    function completeVerification() {
-      const code = document.getElementById('codeInput').value;
-      if (code !== "123456") return alert("Invalid verification code.");
-      login();
-    }
-
-    function login() {
-      user.email = document.getElementById('email').value;
-      user.phone = document.getElementById('phone').value;
-      document.getElementById('userEmail').textContent = user.email;
-      document.getElementById('balance').textContent = user.balance.toFixed(2);
-      document.getElementById('wallet').style.display = 'block';
-      document.getElementById('verify').style.display = 'none';
-      renderTransactions();
-    }
-
-    async function transfer() {
-      const receiverName = document.getElementById('receiverName').value;
-      const receiverNumber = document.getElementById('receiverNumber').value;
-      const receiverBank = document.getElementById('receiverBank').value;
+    function transfer() {
       const amount = parseFloat(document.getElementById('amount').value);
-      const type = document.getElementById('type').value;
+      const recipient = document.getElementById('recipient').value;
 
-      if (!receiverName || !receiverNumber || !receiverBank || isNaN(amount) || amount <= 0)
-        return alert("Please fill in all fields correctly.");
-
-      const fee = amount * 0.01;
-      const tax = amount * 0.015;
-      const total = amount + fee + tax;
-
-      if (total > user.balance) return alert("Insufficient funds.");
-
-      try {
-        user.balance -= total;
-        document.getElementById('balance').textContent = user.balance.toFixed(2);
-
-        user.transactions.push({
-          type, amount, fee, tax, total,
-          date: new Date().toISOString().split('T')[0],
-          receiver: { name: receiverName, number: receiverNumber, bank: receiverBank }
-        });
-
-        const totalToSend = web3.utils.toWei((fee + tax).toString(), "ether");
-        await web3.eth.sendTransaction({
-          from: userWallet,
-          to: "0xYourMetaMaskAddress", // REPLACE THIS!
-          value: totalToSend
-        });
-
-        alert(`Transfer successful! Tax + fee sent to treasury.`);
-
-        renderTransactions();
-      } catch (err) {
-        alert("Transaction error: " + err.message);
-      }
-
-      document.getElementById('receiverName').value = "";
-      document.getElementById('receiverNumber').value = "";
-      document.getElementById('receiverBank').value = "";
-      document.getElementById('amount').value = "";
-    }
-
-    function renderTransactions() {
-      const txDiv = document.getElementById('transactions');
-      const start = document.getElementById('startDate').value;
-      const end = document.getElementById('endDate').value;
-      const filterType = document.getElementById('filterType').value;
-
-      let filtered = user.transactions;
-
-      if (start) filtered = filtered.filter(tx => tx.date >= start);
-      if (end) filtered = filtered.filter(tx => tx.date <= end);
-      if (filterType) filtered = filtered.filter(tx => tx.type === filterType);
-
-      if (filtered.length === 0) {
-        txDiv.innerHTML = "<p>No transactions found.</p>";
+      if (isNaN(amount) || amount <= 0 || recipient === "") {
+        alert("Please enter a valid amount and recipient.");
         return;
       }
 
-      txDiv.innerHTML = filtered.map(tx => `
-        <div>
-          <strong>${tx.date}</strong><br>
-          Type: ${tx.type}<br>
-          Receiver: ${tx.receiver.name}<br>
-          Account Number: ${tx.receiver.number}<br>
-          Bank: ${tx.receiver.bank}<br>
-          Amount: R${tx.amount.toLocaleString()}<br>
-          Fee: R${tx.fee.toFixed(2)}<br>
-          Tax: R${tx.tax.toFixed(2)}<br>
-          Total Deducted: R${tx.total.toFixed(2)}
-        </div>
-      `).join('');
+      if (amount > user.balance) {
+        alert("Insufficient funds.");
+        return;
+      }
+
+      const traceId = generateTraceId();
+
+      user.balance -= amount;
+
+      const transaction = {
+        amount,
+        recipient,
+        timestamp: new Date().toLocaleString(),
+        traceId
+      };
+
+      user.transactions.unshift(transaction);
+      document.getElementById("balance").innerText = user.balance.toFixed(2);
+      renderTransactions();
+
+      alert(`Transfer successful!\nTrace ID: ${traceId}`);
     }
 
-    connectMetaMask();
+    function renderTransactions() {
+      const transactionList = document.getElementById("transaction-list");
+      transactionList.innerHTML = "";
+
+      user.transactions.forEach(tx => {
+        const div = document.createElement("div");
+        div.className = "transaction";
+        div.innerHTML = `
+          <strong>To:</strong> ${tx.recipient}<br/>
+          <strong>Amount:</strong> ${tx.amount.toFixed(2)} ZAR<br/>
+          <strong>Time:</strong> ${tx.timestamp}<br/>
+          <div class="trace-id"><strong>Trace ID:</strong> ${tx.traceId}</div>
+        `;
+        transactionList.appendChild(div);
+      });
+    }
+
+    // Initialize with default balance
+    document.getElementById("balance").innerText = user.balance.toFixed(2);
   </script>
 </body>
 </html>
+
+
