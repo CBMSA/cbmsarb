@@ -4,141 +4,90 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SADC CBDC Web3 Wallet</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f4f4f4;
-      color: #333;
-    }
-    .wallet {
-      background: #fff;
-      padding: 20px;
-      max-width: 500px;
-      margin: auto;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1, h2 {
-      text-align: center;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-    }
-    .balance, .transactions {
-      margin-top: 20px;
-    }
-    .transaction {
-      background: #e0f7fa;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 6px;
-    }
-    .trace-id {
-      font-size: 0.9em;
-      color: #555;
-    }
-  </style>
+  <title>SADC CBDC Admin Dashboard</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 </head>
-<body>
-  <div class="wallet">
-    <h1>SADC CBDC Web3 Wallet</h1>
+<body class="bg-light">
 
-    <div>
-      <label for="amount">Amount:</label>
-      <input type="number" id="amount" placeholder="Enter amount" required />
+  <div class="container py-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="card-title text-center mb-4">SADC CBDC Admin Dashboard</h2>
 
-      <label for="recipient">Recipient:</label>
-      <input type="text" id="recipient" placeholder="Recipient address" required />
+        <div class="mb-3">
+          <label for="adminWallet" class="form-label">Admin Wallet Address</label>
+          <input type="text" class="form-control" id="adminWallet" readonly>
+        </div>
 
-      <button onclick="transfer()">Transfer</button>
-    </div>
+        <div class="mb-3">
+          <label for="adminBalance" class="form-label">Wallet Balance (ZAR)</label>
+          <input type="text" class="form-control" id="adminBalance" readonly>
+        </div>
 
-    <div class="balance">
-      <h2>Wallet Balance: <span id="balance">1000</span> ZAR</h2>
-    </div>
+        <div class="mb-3 d-grid gap-2">
+          <button id="mintBtn" class="btn btn-primary">Issue R2,000,000,000,000 to Admin Wallet</button>
+          <a href="/transactions/export" download>
+            <button class="btn btn-success">Download Transactions CSV</button>
+          </a>
+        </div>
 
-    <div class="transactions">
-      <h2>Transaction History</h2>
-      <div id="transaction-list"></div>
+        <div id="status" class="alert alert-info d-none mt-3"></div>
+      </div>
     </div>
   </div>
 
   <script>
-    // Dummy user wallet
-    const user = {
-      balance: 1000,
-      transactions: []
-    };
+    const contractAddress = "0xYourTokenContract";
+    const tokenABI = [ /* Your ERC-20 ABI here */ ];
 
-    function generateTraceId() {
-      const now = new Date();
-      const timestamp = now.getFullYear().toString() +
-                        (now.getMonth() + 1).toString().padStart(2, '0') +
-                        now.getDate().toString().padStart(2, '0') +
-                        now.getHours().toString().padStart(2, '0') +
-                        now.getMinutes().toString().padStart(2, '0') +
-                        now.getSeconds().toString().padStart(2, '0');
-      const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-      return `TX-${timestamp}-${randomStr}`;
-    }
+    let web3;
+    let account;
+    let contract;
 
-    function transfer() {
-      const amount = parseFloat(document.getElementById('amount').value);
-      const recipient = document.getElementById('recipient').value;
+    async function init() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        await ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await web3.eth.getAccounts();
+        account = accounts[0];
+        document.getElementById("adminWallet").value = account;
 
-      if (isNaN(amount) || amount <= 0 || recipient === "") {
-        alert("Please enter a valid amount and recipient.");
-        return;
+        contract = new web3.eth.Contract(tokenABI, contractAddress);
+        const balance = await contract.methods.balanceOf(account).call();
+        document.getElementById("adminBalance").value = web3.utils.fromWei(balance, "ether");
+      } else {
+        alert("MetaMask not detected.");
       }
+    }
 
-      if (amount > user.balance) {
-        alert("Insufficient funds.");
-        return;
+    document.getElementById("mintBtn").addEventListener("click", async () => {
+      try {
+        const amount = web3.utils.toWei("2000000000000", "ether");
+        const tx = await contract.methods.mint(account, amount).send({ from: account });
+
+        document.getElementById("status").classList.remove("d-none", "alert-danger");
+        document.getElementById("status").classList.add("alert-success");
+        document.getElementById("status").innerText = `Mint successful. TX Hash: ${tx.transactionHash}`;
+
+        // Refresh balance
+        const newBalance = await contract.methods.balanceOf(account).call();
+        document.getElementById("adminBalance").value = web3.utils.fromWei(newBalance, "ether");
+      } catch (err) {
+        document.getElementById("status").classList.remove("d-none", "alert-success");
+        document.getElementById("status").classList.add("alert-danger");
+        document.getElementById("status").innerText = `Error: ${err.message}`;
       }
+    });
 
-      const traceId = generateTraceId();
-
-      user.balance -= amount;
-
-      const transaction = {
-        amount,
-        recipient,
-        timestamp: new Date().toLocaleString(),
-        traceId
-      };
-
-      user.transactions.unshift(transaction);
-      document.getElementById("balance").innerText = user.balance.toFixed(2);
-      renderTransactions();
-
-      alert(`Transfer successful!\nTrace ID: ${traceId}`);
-    }
-
-    function renderTransactions() {
-      const transactionList = document.getElementById("transaction-list");
-      transactionList.innerHTML = "";
-
-      user.transactions.forEach(tx => {
-        const div = document.createElement("div");
-        div.className = "transaction";
-        div.innerHTML = `
-          <strong>To:</strong> ${tx.recipient}<br/>
-          <strong>Amount:</strong> ${tx.amount.toFixed(2)} ZAR<br/>
-          <strong>Time:</strong> ${tx.timestamp}<br/>
-          <div class="trace-id"><strong>Trace ID:</strong> ${tx.traceId}</div>
-        `;
-        transactionList.appendChild(div);
-      });
-    }
-
-    // Initialize with default balance
-    document.getElementById("balance").innerText = user.balance.toFixed(2);
+    window.onload = init;
   </script>
 </body>
 </html>
+
+
 
 
