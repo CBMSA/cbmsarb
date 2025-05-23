@@ -1,55 +1,74 @@
+
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract CBDCWallet {
-    // Variables to store contract metadata
-    address public owner; // Owner of the contract
-    uint256 public totalIssued; // Total amount of issued Rands
+    // Owner of the contract
+    address public owner;
 
-    // Events for logging
-    event FundsIssued(address indexed to, uint256 amount);
-    event FundsWithdrawn(address indexed owner, uint256 amount);
+    // Total amount of Rands issued
+    uint256 public totalIssued;
 
-    // Modifier to restrict access to the owner
+    // Event for fund issuance with trace ID
+    event FundsIssued(address indexed to, uint256 amount, string traceId);
+
+    // Event for withdrawal with trace ID
+    event FundsWithdrawn(address indexed by, uint256 amount, string traceId);
+
+    // Modifier to restrict access to the contract owner
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can perform this action");
         _;
     }
 
-    // Constructor to set the deployer as the owner
+    // Constructor sets the contract deployer as the owner
     constructor() {
         owner = msg.sender;
     }
 
-    // Function to issue funds
-    function issueFunds(address payable to, uint256 amountInWei) external onlyOwner {
+    /**
+     * Issue funds from the contract to an address
+     * @param to The recipient address
+     * @param amountInWei The amount in wei to send
+     * @param traceId A unique trace ID for the transaction
+     */
+    function issueFunds(address payable to, uint256 amountInWei, string calldata traceId) external onlyOwner {
+        require(to != address(0), "Invalid recipient");
         require(amountInWei > 0, "Amount must be greater than zero");
-        require(address(this).balance >= amountInWei, "Insufficient balance in contract");
+        require(address(this).balance >= amountInWei, "Insufficient contract balance");
 
-        // Transfer funds
+        totalIssued += amountInWei;
         to.transfer(amountInWei);
 
-        // Track the total issued funds
-        totalIssued += amountInWei;
-
-        // Emit event for issued funds
-        emit FundsIssued(to, amountInWei);
+        emit FundsIssued(to, amountInWei, traceId);
     }
 
-    // Function to withdraw contract funds (only owner can withdraw)
-    function withdrawFunds(uint256 amount) external onlyOwner {
-        require(amount <= address(this).balance, "Insufficient balance in contract");
+    /**
+     * Withdraw funds from the contract by the owner
+     * @param amount The amount in wei to withdraw
+     * @param traceId A unique trace ID for tracking the withdrawal
+     */
+    function withdrawFunds(uint256 amount, string calldata traceId) external onlyOwner {
+        require(amount > 0, "Amount must be greater than zero");
+        require(amount <= address(this).balance, "Insufficient contract balance");
+
         payable(owner).transfer(amount);
 
-        // Emit event for withdrawal
-        emit FundsWithdrawn(owner, amount);
+        emit FundsWithdrawn(owner, amount, traceId);
     }
 
-    // Function to get the contract's balance
+    /**
+     * View the contract's Ether balance
+     */
     function getContractBalance() external view returns (uint256) {
         return address(this).balance;
     }
 
-    // Allow the contract to receive Ether
+    /**
+     * Fallback function to receive Ether
+     */
     receive() external payable {}
 }
+
+
